@@ -1,0 +1,221 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- HELPERS ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isRedAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'u02cs25s0055@klebcadwd.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'red_admin')
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isRedAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isDispatcher() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'dispatcher') || 
+        isAdmin()
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- VALIDATION HELPERS ---
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 100 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2000000)) &&
+             (!('theme' in data) || data.theme in ['light', 'dark', 'system']) &&
+             (!('weeklyVisits' in data) || data.weeklyVisits is int) &&
+             (
+               (request.auth.token.email == 'u02cs25s0055@klebcadwd.com' && data.role in ['admin', 'red_admin', 'dispatcher', 'passenger']) ||
+               (data.role == 'passenger')
+             );
+    }
+
+    function isValidActivityLog(data) {
+      return (request.auth == null ? data.userId == 'guest' : data.userId == request.auth.uid) &&
+             data.userEmail is string && data.userEmail.size() <= 100 &&
+             data.userRole is string && data.userRole.size() <= 50 &&
+             data.action is string && data.action.size() <= 100 &&
+             data.details is string && data.details.size() <= 1000 &&
+             data.createdAt is string;
+    }
+
+    function isValidRoute(data) {
+      return data.name is string && data.name.size() <= 50 &&
+             data.origin is string && data.origin.size() <= 100 &&
+             data.destination is string && data.destination.size() <= 100 &&
+             data.color is string && data.color.size() <= 20 &&
+             (!('busNumber' in data) || (data.busNumber is string && data.busNumber.size() <= 50)) &&
+             (!('status' in data) || data.status in ['active', 'inactive', 'maintenance']);
+    }
+
+    function isValidBus(data) {
+      return data.busNumber is string && data.busNumber.size() <= 20 &&
+             (!('unitNumber' in data) || (data.unitNumber is string && data.unitNumber.size() <= 20)) &&
+             (!('registrationNumber' in data) || (data.registrationNumber is string && data.registrationNumber.size() <= 50)) &&
+             data.status in ['active', 'inactive', 'maintenance'];
+    }
+
+    function isValidStop(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             (!('stopNumber' in data) || (data.stopNumber is string && data.stopNumber.size() <= 20)) &&
+             (!('mapUrl' in data) || (data.mapUrl is string && data.mapUrl.size() <= 500)) &&
+             (!('status' in data) || data.status in ['active', 'inactive', 'maintenance']) &&
+             (!('onlyTheseBuses' in data) || (data.onlyTheseBuses is list));
+    }
+
+    function isValidNotification(data) {
+      return data.title is string && data.title.size() <= 100 &&
+             data.message is string && data.message.size() <= 1000 &&
+             data.type in ['info', 'warning', 'urgent'] &&
+             data.recipientType in ['all', 'specific'] &&
+             (!('targetUsers' in data) || data.targetUsers is list) &&
+             data.timingType in ['instant', 'scheduled'] &&
+             (!('scheduledTime' in data) || data.scheduledTime is string) &&
+             data.sendCount is int &&
+             data.sentCount is int &&
+             data.createdAt is string &&
+             data.createdBy is string;
+    }
+
+    function isValidAlert(data) {
+      return data.title is string && data.title.size() <= 100 &&
+             data.message is string && data.message.size() <= 1000 &&
+             data.type in ['info', 'warning', 'urgent'] &&
+             data.createdAt is string &&
+             data.createdBy is string;
+    }
+
+    function isValidTicket(data) {
+      return data.userId == request.auth.uid &&
+             data.userEmail is string && data.userEmail.size() <= 100 &&
+             data.userDisplayName is string && data.userDisplayName.size() <= 100 &&
+             data.subject is string && data.subject.size() <= 200 &&
+             data.message is string && data.message.size() <= 2000 &&
+             data.status in ['open', 'closed'] &&
+             data.createdAt is string;
+    }
+
+    // --- RULES ---
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming());
+      allow update: if (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role']) && (incoming().role == 'red_admin' ? isRedAdmin() : true)) ||
+                    (userId == request.auth.uid && (
+                      incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'theme', 'weeklyVisits']) ||
+                      (request.auth.token != null && 'email' in request.auth.token && request.auth.token.email == 'u02cs25s0055@klebcadwd.com')
+                    ));
+    }
+
+    match /routes/{routeId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidRoute(incoming());
+      allow update: if (isAdmin() && isValidRoute(incoming())) ||
+                    (isDispatcher() && incoming().diff(existing()).affectedKeys().hasOnly(['status']));
+      allow delete: if isAdmin();
+    }
+
+    match /buses/{busId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidBus(incoming());
+      allow update: if (isDispatcher() && (
+                      incoming().diff(existing()).affectedKeys().hasOnly(['currentRouteId', 'lastLocation', 'updatedAt', 'status']) ||
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+                    )) ||
+                    (isAdmin() && isValidBus(incoming()));
+      allow delete: if isAdmin();
+    }
+
+    match /stops/{stopId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidStop(incoming());
+      allow update: if (isAdmin() && isValidStop(incoming())) ||
+                    (isDispatcher() && incoming().diff(existing()).affectedKeys().hasOnly(['status']));
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /trips/{tripId} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidAlert(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidNotification(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidTicket(incoming());
+      allow update: if isSignedIn() && (
+        (resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /system_logs/{logId} {
+      allow read: if isRedAdmin();
+      allow create: if isValidActivityLog(incoming());
+    }
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "red_admin", "dispatcher", "passenger"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Route": {
+      "title": "Route",
+      "description": "Bus route definition",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string" },
+        "name": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["routeId", "name", "origin", "destination"]
+    },
+    "Bus": {
+      "title": "Bus",
+      "description": "Bus state and real-time location",
+      "type": "object",
+      "properties": {
+        "busId": { "type": "string" },
+        "busNumber": { "type": "string" },
+        "currentRouteId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "lastLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["busId", "busNumber", "status"]
+    },
+    "Stop": {
+      "title": "Stop",
+      "description": "Bus stop location",
+      "type": "object",
+      "properties": {
+        "stopId": { "type": "string" },
+        "name": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "onlyTheseBuses": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["stopId", "name", "location"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Bus arrival/departure schedule",
+      "type": "object",
+      "properties": {
+        "scheduleId": { "type": "string" },
+        "routeId": { "type": "string" },
+        "busId": { "type": "string" },
+        "departureTime": { "type": "string" },
+        "daysOfWeek": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["scheduleId", "routeId", "departureTime"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Activity logs collection for security audits",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "userRole", "action", "details", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System or targeted notifications sent or scheduled by admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["instant", "scheduled"] },
+        "scheduledTime": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["all", "specific"] },
+        "targetUsers": { "type": "array", "items": { "type": "string" } },
+        "sendCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "title", "message", "type", "targetType", "sendCount", "createdAt", "createdBy"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Customer support and contact requests tickets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userDisplayName": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "replies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "senderId": { "type": "string" },
+              "senderEmail": { "type": "string" },
+              "senderRole": { "type": "string" },
+              "message": { "type": "string" },
+              "createdAt": { "type": "string", "format": "date-time" }
+            },
+            "required": ["senderId", "senderEmail", "senderRole", "message", "createdAt"]
+          }
+        },
+        "closedAt": { "type": "string", "format": "date-time" },
+        "closedBy": { "type": "string" }
+      },
+      "required": ["id", "userId", "userEmail", "userDisplayName", "subject", "message", "status", "createdAt", "replies"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Authenticated users and their roles"
+    },
+    "routes": {
+      "schema": "Route",
+      "description": "Available bus routes"
+    },
+    "buses": {
+      "schema": "Bus",
+      "description": "Bus inventory and tracking"
+    },
+    "stops": {
+      "schema": "Stop",
+      "description": "Bus stop locations"
+    },
+    "schedules": {
+      "schema": "Schedule",
+      "description": "Daily bus schedules"
+    },
+    "activity_logs": {
+      "schema": "ActivityLog",
+      "description": "Audit trace of operations performed in the system"
+    },
+    "notifications": {
+      "schema": "Notification",
+      "description": "System or targeted notifications sent or scheduled by admin"
+    },
+    "tickets": {
+      "schema": "Ticket",
+      "description": "Customer support and contact requests tickets"
+    }
+  }
+}

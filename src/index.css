@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-200;
+  }
+  
+  /* Robust global dark mode styling overrides */
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  .dark .bg-white {
+    @apply bg-slate-900! text-slate-100!;
+  }
+  
+  .dark .border-slate-200 {
+    @apply border-slate-800!;
+  }
+  
+  .dark .border-slate-100 {
+    @apply border-slate-800/60!;
+  }
+  
+  .dark .text-slate-900 {
+    @apply text-slate-100!;
+  }
+  
+  .dark .text-slate-800 {
+    @apply text-slate-200!;
+  }
+  
+  .dark .text-slate-700 {
+    @apply text-slate-300!;
+  }
+  
+  .dark .text-slate-600 {
+    @apply text-slate-400!;
+  }
+  
+  .dark .text-slate-500 {
+    @apply text-slate-400!;
+  }
+
+  .dark .bg-slate-50 {
+    @apply bg-slate-950!;
+  }
+
+  .dark .bg-slate-100 {
+    @apply bg-slate-900!;
+  }
+  
+  .dark .hover\:bg-slate-50:hover {
+    @apply hover:bg-slate-800/50!;
+  }
+  
+  .dark .hover\:bg-slate-100:hover {
+    @apply hover:bg-slate-800!;
+  }
+}
+
+@layer components {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
